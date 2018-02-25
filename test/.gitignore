@@ -1,0 +1,4 @@
+out/
+.buildpath
+.project
+bright_web_socket.json

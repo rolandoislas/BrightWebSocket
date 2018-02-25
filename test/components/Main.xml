@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component name="Main" extends="Scene">
+
+	<children>
+	
+		<Label
+			id="telnet"
+			text="BrightWebSocket: telnet is your friend"
+			color="0xffffff"
+			font="font:LargeBoldSystemFont"
+			width="1280"
+			height="720"
+			translation="[0,0]"
+			horizAlign="center"
+			vertAlign="center" />
+			
+	</children>
+	
+	<script type="text/brightscript" uri="pkg:/source/Main.brs" />
+</component>
