@@ -23,7 +23,7 @@ function init() as void
     m.OPCODE_CLOSE = 8
     m.OPCODE_PING = 9
     m.OPCODE_PONG = 10
-    m.BUFFER_SIZE = 8192
+    m.BUFFER_SIZE = cint(1024 * 1024 * 0.5)
     ' Fields
     m.top.STATE_CONNECTING = 0
     m.top.STATE_OPEN = 1
@@ -32,9 +32,11 @@ function init() as void
     m.top.ready_state = m.top.STATE_CLOSED
     m.top.protocols = []
     m.top.headers = []
+    m.top.secure = false
     ' Logging
     init_logging()
     ' Variables
+    m.tls = invalid
     m.socket = invalid
     m.sec_ws_key = invalid
     m.handshake = invalid
@@ -46,10 +48,12 @@ function init() as void
     m.frame_data = createObject("roByteArray")
     m.last_ping_time = 0
     m.started_closing = 0
+    m.hostname = ""
     ' Event listeners
     m.top.observeField("open", m.PORT)
     m.top.observeField("send", m.PORT)
     m.top.observeField("close", m.PORT)
+    m.top.observeField("buffer_size", m.PORT)
     ' Task init
     m.top.functionName = "run"
     m.top.control = "RUN"
@@ -67,6 +71,8 @@ function run() as void
                 send(msg.getData())
             else if msg.getField() = "close"
                 handle_user_close(msg.getData())
+            else if msg.getField() = "buffer_size"
+                set_buffer_size(msg.getData())
             end if
         ' Socket event
         else if type(msg) = "roSocketEvent"
@@ -79,16 +85,31 @@ function run() as void
     end while
 end function
 
-' Force close a connection after the close frame has been sent and no reponse
+' Set buffer size
+function set_buffer_size(size as integer) as void
+    if m.top.ready_state <> m.STATE_CLOSED
+        printl(m.WARN, "WebSocketClient: Cannot resize buffer on a socket that is not closed")
+        return
+    else if size < m.FRAME_SIZE
+        printl(m.WARN, "WebSocketClient: Cannot set buffer to a size smaller than " + m.FRAME_SIZE.toStr() + " bytes")
+        return
+    end if
+    m.BUFFER_SIZE = size
+    m.buffer = createObject("roByteArray")
+    m.buffer[m.BUFFER_SIZE] = 0
+    m.data_size = 0
+end function
+
+' Force close a connection after the close frame has been sent and no response
 ' was given, after a timeout
-function try_force_close()
+function try_force_close() as void
     if m.top.ready_state = m.top.STATE_CLOSING and uptime(0) - m.started_closing >= 30
         close()
     end if
 end function
 
 ' Try to send a ping
-function try_send_ping()
+function try_send_ping() as void
     if m.top.ready_state = m.top.STATE_OPEN and uptime(0) - m.last_ping_time >= 1
         if send("", m.OPCODE_PING, true) < 0
             close()
@@ -184,37 +205,32 @@ function send(message as dynamic, _opcode = -1 as integer, silent = false as boo
         ' payload_length_continuation(64)
         ' 16 bit uint
         if length_7 = 126
-            frame.push(payload.count() >> 8)
-            frame.push(payload.count())
+            frame.append(short_to_bytes(payload.count()))
         ' 64 bit uint
         else if length_7 = 127
-            size = payload.count()
-            size_bytes = createObject("roByteArray")
-            for bit = 7 to 0 step -1
-                size_bytes[bit] = (size and &hff)
-                size >>= 8
-            end for
-            frame.append(size_bytes)
+            frame.append(long_to_bytes(payload.count()))
         end if
         ' masking key(32)
         mask = rnd(&hffff)
-        mask_bytes = createObject("roByteArray")
-        for bit = 24 to 0 step -8
-            mask_bytes.push(mask >> bit)
-        end for
+        mask_bytes = int_to_bytes(mask)
         frame.append(mask_bytes)
         ' Mask payload
         masked_payload = createObject("roByteArray")
         for byte_index = 0 to payload.count() - 1
             masking_key = mask_bytes[byte_index mod 4]
             byte = payload[byte_index]
-            masked_byte = (byte or masking_key) and not (byte and masking_key)
+            masked_byte = xor(byte, masking_key)
             masked_payload.push(masked_byte)
         end for
         frame.append(masked_payload)
         ' Send frame
         printl(m.VERBOSE, "WebSocketClient: Sending frame: " + frame.toHexString())
-        sent = m.socket.send(frame, 0, frame.count())
+        sent = 0
+        if m.top.secure
+            sent = m.tls.send(m.tls, frame)
+        else
+            sent = m.socket.send(frame, 0, frame.count())
+        end if
         printl(m.VERBOSE, "WebSocketClient: Sent " + sent.toStr() + " bytes")
         total_sent += sent
         if sent <> frame.count()
@@ -230,31 +246,59 @@ end function
 
 ' Send the initial websocket handshake if it has not been sent
 function send_handshake() as void
-    if m.socket = invalid or not m.socket.isWritable() or m.sent_handshake or m.handshake = invalid
+    if m.socket = invalid or not m.socket.isWritable() or m.sent_handshake or m.handshake = invalid or m.tls.ready_state = m.tls.STATE_CONNECTING
         return
     end if
-    printl(m.VERBOSE, m.handshake)
-    sent = m.socket.sendStr(m.handshake)
-    printl(m.VERBOSE, "WebSocketClient: Sent " + sent.toStr() + " bytes")
-    if sent = -1
-        close()
-        error(4, "Failed to send data: " + m.socket.status().toStr())
-        return
+    if m.top.secure and m.tls.ready_state = m.tls.STATE_DISCONNECTED
+        m.tls.connect(m.tls, m.hostname)
+    else
+        printl(m.VERBOSE, m.handshake)
+        sent = 0
+        if m.top.secure
+            sent = m.tls.send_str(m.tls, m.handshake)
+        else
+            sent = m.socket.sendStr(m.handshake)
+        end if
+        printl(m.VERBOSE, "WebSocketClient: Sent " + sent.toStr() + " bytes")
+        if sent = -1
+            close()
+            error(4, "Failed to send data: " + m.socket.status().toStr())
+            return
+        end if
+        m.sent_handshake = true
     end if
-    m.sent_handshake = true
 end function
 
 ' Read socket data
 function read_socket_data() as void
-    if m.socket = invalid or not m.socket.isReadable()
+    if m.socket = invalid or m.top.ready_state = m.top.STATE_CLOSED or (m.top.secure and m.tls.ready_state = m.tls.STATE_DISCONNECTED)
         return
     end if
-    bytes_received =  m.socket.receive(m.data, m.data_size, 1024)
+    buffer = createObject("roByteArray")
+    buffer[1024] = 0
+    bytes_received = 0
+    if m.socket.isReadable()
+        bytes_received = m.socket.receive(buffer, 0, 1024)
+    end if
     if bytes_received < 0
         close()
         error(15, "Failed to read from socket")
         return
     end if
+    if m.top.secure
+        buffer = m.tls.read(m.tls, buffer, bytes_received)
+        if buffer = invalid
+            close()
+            error(17, "TLS error")
+            return
+        end if
+        bytes_received = buffer.count()
+    end if
+    buffer_index = 0
+    for byte_index = m.data_size to m.data_size + bytes_received - 1
+            m.data[byte_index] = buffer[buffer_index]
+            buffer_index++
+    end for
     m.data_size += bytes_received
     m.data[m.data_size] = 0
     ' WebSocket frames
@@ -479,9 +523,9 @@ function generate_sec_ws_key() as string
         end if
         sec_ws_key += char
     end for
-    byte_array = createObject("roByteArray")
-    byte_array.fromAsciiString(sec_ws_key)
-    return byte_array.toBase64String()
+    ba = createObject("roByteArray")
+    ba.fromAsciiString(sec_ws_key)
+    return ba.toBase64String()
 end function
 
 ' Connect to the specified URL
@@ -497,10 +541,12 @@ function open(url as string) as void
         host = lcase(match[2])
         port = match[3]
         path = match[4]
+        m.hostname = host
         ' Port
         if port <> ""
             port = val(port, 10)
         else if ws_type = "wss"
+            m.top.secure = true
             port = 443
         else if ws_type = "ws"
             port = 80
@@ -547,6 +593,7 @@ function open(url as string) as void
             error(2, "Invalid hostname")
             return
         end if
+        m.data_size = 0
         m.socket = createObject("roStreamSocket")
         m.socket.notifyReadable(true)
         m.socket.notifyWritable(true)
@@ -555,6 +602,8 @@ function open(url as string) as void
         m.socket.setSendToAddress(address)
         m.sent_handshake = false
         m.has_received_handshake = false
+        m.tls = TlsUtil(m.socket)
+        m.tls.set_buffer_size(m.tls, m.BUFFER_SIZE)
         if not m.socket.connect()
             close()
             error(3, "Socket failed to connect: " + m.socket.status().toStr())
