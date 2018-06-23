@@ -11,8 +11,6 @@ function init() as void
     m.CHARS = "0123456789abcdefghijklmnopqrstuvwxyz".split("")
     m.PORT = createObject("roMessagePort")
     m.NL = chr(13) + chr(10)
-    m.NEW_LINE_REGEX = createObject("roRegex", chr(13) + "?" + chr(10), "")
-    m.HTTP_DELIMITER_REGEX = createObject("roRegex", m.NL + m.NL, "")
     m.HTTP_STATUS_LINE_REGEX = createObject("roRegex", "(HTTP\/\d+(?:.\d)?)\s(\d{3})\s(.*)", "")
     m.HTTP_HEADER_REGEX = createObject("roRegex", "(\w+):\s?(.*)", "")
     m.WS_ACCEPT_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
@@ -126,7 +124,8 @@ end function
 ' @param _opcode int - define a **control** opcode data opcodes are determined
 '                      by the type of the passed message
 ' @param silent boolean - does not send on_error event
-function send(message as dynamic, _opcode = -1 as integer, silent = false as boolean) as integer
+' @param do_close boolean - if true, a close frame will be sent on errors
+function send(message as dynamic, _opcode = -1 as integer, silent = false as boolean, do_close = true as boolean) as integer
     if m.socket = invalid or not m.socket.isWritable()
         printl(m.DEBUG, "WebSocketClient: Failed to send data: socket is closed")
         return -1
@@ -234,7 +233,9 @@ function send(message as dynamic, _opcode = -1 as integer, silent = false as boo
         printl(m.VERBOSE, "WebSocketClient: Sent " + sent.toStr() + " bytes")
         total_sent += sent
         if sent <> frame.count()
-            close()
+            if do_close
+                close()
+            end if
             if not silent
                 error(14, "Failed to send data")
             end if
@@ -374,8 +375,9 @@ function read_socket_data() as void
     ' HTTP/Handshake
     else
         data = m.data.toAsciiString()
-        if m.HTTP_DELIMITER_REGEX.isMatch(data)
-            split = m.HTTP_DELIMITER_REGEX.split(data)
+        http_delimiter = m.NL + m.NL
+        if data.len() <> data.replace(http_delimiter, "").len()
+            split = data.split(http_delimiter)
             message = split[0]
             data = ""
             for split_index = 1 to split.count() - 1
@@ -675,7 +677,7 @@ function send_close_frame(code, reason)
     if reason <> invalid
         message.append(reason)
     end if
-    send(message, m.OPCODE_CLOSE)
+    send(message, m.OPCODE_CLOSE, true, false)
 end function
 
 ' Handle a close event field
