@@ -357,7 +357,7 @@ function WebSocketClient() as object
         buffer = createObject("roByteArray")
         buffer[1024] = 0
         bytes_received = 0
-        if m._socket.isReadable()
+        if m._socket.isReadable() and m._socket.getCountRcvBuf() > 0
             bytes_received = m._socket.receive(buffer, 0, 1024)
         end if
         if bytes_received < 0
@@ -797,13 +797,13 @@ function WebSocketClient() as object
     ws.close = function (params as object) as void
         code = 1000
         reason = createObject("roByteArray")
-        if reason.count() > 0
+        if params.count() > 0
             code = params[0]
             if type(code) <> "Integer" or code > &hffff
                 m._logger.printl(m._logger.DEBUG, "WebSocketClient: close expects value at array index 0 to be a 16-bit integer")
             end if
         end if
-        if reason.count() > 1
+        if params.count() > 1
             message = params[1]
             if type(message) <> "roString" or type(message) <> "String"
                 reason.fromAsciiString(message)
