@@ -51,9 +51,9 @@ function WebSocketClient() as object
     ws._hostname = ""
     ws._ws_port = createObject("roMessagePort")
     ws._message_port = invalid
-    
+
     ' ========== Getters ==========
-    
+
     ' Get web socket ready state
     ' @see WebSocketClient.STATE for values
     ' @param self WebSocketClient
@@ -61,14 +61,14 @@ function WebSocketClient() as object
     ws.get_ready_state = function () as integer
         return m._ready_state
     end function
-    
+
     ' Get web socket protocols sent on initial handshake
     ' @param self WebSocketClient
     ' @return roArray web socket protocols
     ws.get_protocols = function () as object
         return m._protocols
     end function
-    
+
     ' Get HTTP headers sent on initial HTTP request
     ' @param self WebSocketClient
     ' @return roArray HTTP headers - even indices are the header keys, the odd
@@ -76,7 +76,7 @@ function WebSocketClient() as object
     ws.get_headers = function () as object
         return m._headers
     end function
-    
+
     ' Get the status of a secure web socket connection having been used
     ' @param self WebSocketClient
     ' @return boolean true if a TLS connection should be attempted before
@@ -84,16 +84,16 @@ function WebSocketClient() as object
     ws.get_secure = function () as boolean
         return m._secure
     end function
-    
+
     ' Get the maximum buffer size for data sent to the websocket
     ' @param self WebSocketClient
     ' @return integer max buffer size in bytes
     ws.get_buffer_size = function () as integer
         return m._buffer_size
     end function
-    
+
     ' ========== Setters ==========
-    
+
     ' Set the web socket protocols to request from the web socket server
     ' @param self WebSocketClient
     ' @param roArray of protocol strings
@@ -101,7 +101,7 @@ function WebSocketClient() as object
         m._protocols = protocols
         m._post_message("protocols", m._protocols)
     end function
-    
+
     ' Set the headers to send on the initial HTTP request for a web socket
     ' @param self WebSocketClient
     ' @param roArray of header strings - The even indices should be the header
@@ -110,7 +110,7 @@ function WebSocketClient() as object
         m._headers = headers
         m._post_message("headers", m._headers)
     end function
-    
+
     ' Set if a TLS connection should be attempted before the web socket
     ' connection
     ' @param self WebSocketClient
@@ -119,7 +119,7 @@ function WebSocketClient() as object
         m._secure = secure
         m._post_message("secure", m._secure)
     end function
-    
+
     ' Set the buffer size for web socket data
     ' @param self WebSocketClient
     ' @param size integer max size of buffer in bytes
@@ -137,7 +137,7 @@ function WebSocketClient() as object
         m._data_size = 0
         m._post_message("buffer_size", m._buffer_size)
     end function
-    
+
     ' Set the message port that should be used to relay web socket events and
     ' field change updates
     ' @param self WebSocketClient
@@ -145,9 +145,14 @@ function WebSocketClient() as object
     ws.set_message_port = function (port as object) as void
         m._message_port = port
     end function
-    
+
+    ' Set the log level
+    ws.set_log_level = function (log_level as string) as void
+        m._logger.set_log_level(log_level)
+    end function
+
     ' ========== Main ==========
-    
+
     ' Parses one websocket frame or HTTP message, if one is available
     ' @param self WebSocketClient
     ws.run = function () as void
@@ -161,7 +166,7 @@ function WebSocketClient() as object
         m._try_send_ping()
         m._try_force_close()
     end function
-    
+
     ' Force close a connection after the close frame has been sent and no
     ' response was given, after a timeout
     ' @param self WebSocketClient
@@ -170,7 +175,7 @@ function WebSocketClient() as object
             m._close()
         end if
     end function
-    
+
     ' Try to send a ping
     ' @param self WebSocketClient
     ws._try_send_ping = function () as void
@@ -182,7 +187,7 @@ function WebSocketClient() as object
             m._last_ping_time = uptime(0)
         end if
     end function
-    
+
     ' Sends data through the socket
     ' @param self WebSocketClient
     ' @param message array - should contain one element of type roString or roArray
@@ -316,7 +321,7 @@ function WebSocketClient() as object
         end for
         return total_sent
     end function
-    
+
     ' Send the initial websocket handshake if it has not been sent
     ' @param self WebSocketClient
     ws._send_handshake = function () as void
@@ -342,7 +347,7 @@ function WebSocketClient() as object
             m._sent_handshake = true
         end if
     end function
-    
+
     ' Read socket data
     ' @param self WebSocketClient
     ws._read_socket_data = function () as void
@@ -469,7 +474,7 @@ function WebSocketClient() as object
         m._data_size = m._data.count()
         m._data[m._buffer_size] = 0
     end function
-    
+
     ' Handle the handshake message or die trying
     ' @param self WebSocketClient
     ' @param string http response header
@@ -553,7 +558,7 @@ function WebSocketClient() as object
             protocol: protocol
         })
     end function
-    
+
     ' Post a message to the message port
     ' @param self WebSocketClient
     ' @param id string message event id
@@ -566,7 +571,7 @@ function WebSocketClient() as object
             })
         end if
     end function
-    
+
     ' Handle a web socket frame
     ' @param self WebSocketClient
     ' @param opcode int opcode
@@ -606,7 +611,7 @@ function WebSocketClient() as object
             return
         end if
     end function
-    
+
     ' Generate a 20 character [A-Za-z0-9] random string and base64 encode it
     ' @param self WebSocketClient
     ' @return string random 20 character base64 encoded string
@@ -623,7 +628,7 @@ function WebSocketClient() as object
         ba.fromAsciiString(sec_ws_key)
         return ba.toBase64String()
     end function
-    
+
     ' Connect to the specified URL
     ' @param self WebSocketClient
     ' @param url_string web socket url to connect
@@ -670,7 +675,7 @@ function WebSocketClient() as object
             if protocols <> ""
                 protocols = protocols.left(len(protocols) - 2)
             end if
-            handshake =  "GET " + path + " HTTP/1.1" +m._NL 
+            handshake =  "GET " + path + " HTTP/1.1" +m._NL
             handshake += "Host: " + host + ":" + port.toStr() + m._NL
             handshake += "Upgrade: websocket" + m._NL
             handshake += "Connection: Upgrade" + m._NL
@@ -714,7 +719,7 @@ function WebSocketClient() as object
             m._error(1, "Invalid URL specified")
         end if
     end function
-    
+
     ' Parse header array and return a string of headers delimited by CRLF
     ' @param self WebSocketClient
     ws._get_parsed_user_headers = function () as string
@@ -729,15 +734,15 @@ function WebSocketClient() as object
         end for
         return header_string
     end function
-    
+
     ' Set ready state
     ' @param self WebSocketClient
-    ' @param state 
+    ' @param state
     ws._state = function (_state as integer) as void
         m._ready_state = _state
         m._post_message("ready_state", _state)
     end function
-    
+
     ' Send an error event
     ' Posts an on_error message to the message port
     ' @param self WebSocketClient
@@ -750,7 +755,7 @@ function WebSocketClient() as object
             message: message
         })
     end function
-    
+
     ' Close the socket
     ' @param WebSocketClient
     ' @param code integer -  status code
@@ -771,7 +776,7 @@ function WebSocketClient() as object
             m._state(m.STATE.CLOSED)
         end if
     end function
-    
+
     ' Send a close frame to the server to initiate a close
     ' @param self WebSocketClient
     ' @param code integer -  status code
@@ -785,7 +790,7 @@ function WebSocketClient() as object
         end if
         m.send(message, m.OPCODE.CLOSE, true, false)
     end function
-    
+
     ' Close the socket
     ' @self WebSocketClient
     ' @param reason array - array [code as integer, message as roString]
@@ -808,7 +813,7 @@ function WebSocketClient() as object
         end if
         m._close(code, reason)
     end function
-        
+
     ' Return constructed instance
     return ws
 end function

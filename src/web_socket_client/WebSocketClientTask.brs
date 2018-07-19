@@ -27,6 +27,7 @@ function init() as void
     m.top.observeField("protocols", m.port)
     m.top.observeField("headers", m.port)
     m.top.observeField("secure", m.port)
+    m.top.observeField("log_level", m.port)
     ' Task init
     m.top.functionName = "run"
     m.top.control = "RUN"
@@ -53,6 +54,8 @@ function run() as void
                 m.ws.set_headers(msg.getData())
             else if msg.getField() = "secure"
                 m.ws.set_secure(msg.getData())
+            else if msg.getField() = "log_level"
+                m.ws.set_log_level(msg.getData())
             end if
         ' WebSocket event
         else if type(msg) = "roAssociativeArray"

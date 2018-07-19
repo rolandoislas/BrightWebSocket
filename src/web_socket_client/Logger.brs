@@ -13,9 +13,9 @@ function Logger() as object
     log.DEBUG = 1
     log.EXTRA = 2
     log.VERBOSE = 3
-    
+
     ' Main
-    
+
     ' Log a message
     ' @param level log level string or integer
     ' @param msg message to print
@@ -25,7 +25,7 @@ function Logger() as object
         end if
         print "[" + m._level_to_string(level) + "] " + msg
     end function
-    
+
     ' Parse level to a string
     ' @param level string or integer level
     log._level_to_string = function (level as object) as string
@@ -46,7 +46,7 @@ function Logger() as object
             return "VERBOSE"
         end if
     end function
-    
+
     ' Parse level to an integer
     ' @param level string or integer level
     log._parse_level = function (level as object) as integer
@@ -67,7 +67,12 @@ function Logger() as object
         end if
         return log_level
     end function
-    
+
+    ' Set the log level
+    log.set_log_level = function (level as string) as void
+        m.log_level = m._parse_level(level)
+    end function
+
     ' Parse Config
     config_string = readAsciiFile("pkg:/bright_web_socket.json")
     config = parseJson(config_string)

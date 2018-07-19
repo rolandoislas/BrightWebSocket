@@ -3,7 +3,7 @@
     WebSocketClient.xml
     Copyright (c) 2018 Rolado Islas
     Released under the MIT license
-    
+
     WebSocket client following RFC 6455
 -->
 <component name="WebSocketClient" extends="Task">
@@ -23,12 +23,13 @@
         <field id="headers" type="array" alwaysNotify="true" />
         <field id="secure" type="boolean" alwaysNotify="true" />
         <field id="buffer_size" type="integer" alwaysNotify="true" />
+        <field id="log_level" type="string" alwaysNotify="true" />
         <!-- Functions -->
         <field id="open" type="string" alwaysNotify="true" />
         <field id="send" type="array" alwaysNotify="true" />
         <field id="close" type="array" alwaysNotify="true" />
     </interface>
-    
+
     <script type="text/brightscript" uri="pkg:/components/web_socket_client/WebSocketClient.brs" />
     <script type="text/brightscript" uri="pkg:/components/web_socket_client/WebSocketClientTask.brs" />
     <script type="text/brightscript" uri="pkg:/components/web_socket_client/Logger.brs" />
