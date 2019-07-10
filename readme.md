@@ -1,6 +1,8 @@
 # BrightWebSocket
 
-A ScreneGraph websocket client library written in BrightScript
+A SceneGraph websocket client library written in BrightScript
+
+**This repo is no longer maintained. See [This fork](https://github.com/SuitestAutomation/BrightWebSocket) for an actively maintained repo.**
 
 # RFC 6455
 
