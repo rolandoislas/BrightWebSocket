@@ -17,11 +17,11 @@ Notes:
 
 The contents of the "src" folder in the repository's root should be placed
  in the "components" folder of a SceneGraph Roku app.
- 
+
 # Using the Library
 
-The client follows the 
- [HTML WebSocket interface](https://html.spec.whatwg.org/multipage/web-sockets.html#the-websocket-interface), 
+The client follows the
+ [HTML WebSocket interface](https://html.spec.whatwg.org/multipage/web-sockets.html#the-websocket-interface),
  modified to work with BrightScript conventions. Those familiar with browser
  (JavaScript) WebSocket implementations should find this client similar.
 
@@ -45,7 +45,7 @@ end function
 ```
 
 For a working sample app see the "test" folder. Its contents can be zipped for
- installation as a dev channel on a Roku.
+ installation as a dev channel on a Roku using `cd test && make install`
 
 # License
 
